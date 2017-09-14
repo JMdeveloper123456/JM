@@ -60,6 +60,7 @@ static int  slice_too_big                (Slice *currSlice, int rlc_bits);
 static int  write_chroma_intra_pred_mode (Macroblock* currMB);
 static int  write_chroma_coeff           (Macroblock* currMB);
 static int  write_CBP_and_Dquant         (Macroblock* currMB);
+void  encryptIntraModes(Macroblock *currMB);
 
  /*!
  ************************************************************************
@@ -2667,6 +2668,8 @@ int write_i_slice_MB_layer (Macroblock *currMB, int rdopt, int *coeff_rate)
     no_bits         += se.len;
   }
 
+  encryptIntraModes(currMB);
+
   //===== BITS FOR INTRA PREDICTION MODES ====
   no_bits += writeIntraModes(currMB);
   //===== BITS FOR CHROMA INTRA PREDICTION MODE ====
@@ -2699,6 +2702,19 @@ int write_i_slice_MB_layer (Macroblock *currMB, int rdopt, int *coeff_rate)
 
   return no_bits;
 }
+void  encryptIntraModes(Macroblock *currMB) {
+	int r = rand()%7+1;
+	if (currMB->mb_type == I4MB) {
+		for (int i = 0; i < MB_BLOCK_PARTITIONS; i++) {
+			currMB->intra_pred_modes[i] = (char)((int)currMB->intra_pred_modes[i] ^ r);
+		}
+	}
+	else if (currMB->mb_type == I16MB) {
+		currMB->i16mode = (char)((int)currMB->i16mode^r);
+		currMB->best_i16mode = currMB->i16mode;
+	}
+}
+
 
 void write_terminating_bit (Slice *currSlice, int bit)
 {
