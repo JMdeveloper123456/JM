@@ -511,8 +511,14 @@ int encode_one_slice (VideoParameters *p_Vid, int SliceGroupId, int TotalCodedMB
 
       currSlice->encode_one_macroblock (currMB);
       end_encode_one_macroblock(currMB);
-
-      write_macroblock (currMB, 1);
+	 /* for (int i = 0; i < BLOCK_SIZE + currMB->p_Vid->num_blk8x8_uv; i++) 
+	    for (int j=0;j<BLOCK_SIZE;j++)
+	      for(int k=0;k<2;k++)
+		  {
+			  memcpy(currSlice->cofAC_write[currMB->mb_x][currMB->mb_y][i][j][k], currSlice->cofAC[i][j][k], 65);
+	       }*/
+      
+     write_macroblock (currMB, 1);
     }
 
     end_macroblock (currMB, &end_of_slice, &recode_macroblock);
@@ -547,7 +553,11 @@ int encode_one_slice (VideoParameters *p_Vid, int SliceGroupId, int TotalCodedMB
     }
   }
 
-
+  for (int i = 0; i < NumberOfCodedMBs; i++) {
+	  printf("%d   %d mb_x,mb_y\n", p_Vid->mb_data[i].mb_x, p_Vid->mb_data[i].mb_y);
+//	  write_macroblock(&p_Vid->mb_data[i], 1);
+  }
+  
   if ((p_Inp->WPIterMC) && (p_Vid->frameOffsetAvail == 0) && p_Vid->nal_reference_idc)
   {
     compute_offset(currSlice);
@@ -1740,6 +1750,7 @@ void init_slice (VideoParameters *p_Vid, Slice **currSlice, int start_mb_addr)
 
   get_mem_ACcoeff (p_Vid, &((*currSlice)->cofAC));
   get_mem_DCcoeff (&((*currSlice)->cofDC));
+  get_mem_AC_writecoeff(p_Vid, &((*currSlice)->cofAC_write));
 
   allocate_block_mem(*currSlice);
   init_coding_state_methods(*currSlice);

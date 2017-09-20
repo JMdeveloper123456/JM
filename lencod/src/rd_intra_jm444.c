@@ -31,6 +31,7 @@
 #include "rd_intra_jm.h"
 #include "blk_prediction.h"
 
+
 /*!
  *************************************************************************************
  * \brief
@@ -212,6 +213,7 @@ int mode_decision_for_I4x4_blocks_JM_High444 (Macroblock *currMB, int  b8,  int 
   p_Vid->ipredmode[pic_block_y][pic_block_x] = (char) best_ipmode;
   currMB->intra_pred_modes[4*b8+b4] =
     (char) (mostProbableMode == best_ipmode ? -1 : (best_ipmode < mostProbableMode ? best_ipmode : best_ipmode-1));
+  //encryptIntraModes_forI4x4MB(currMB, b8, b4, all_available, up_available, left_available);
 
   if(currSlice->P444_joined)
   {

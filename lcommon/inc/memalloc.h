@@ -57,6 +57,7 @@ extern int  get_mem3Dint64(int64 ****array3D, int dim0, int dim1, int dim2);
 extern int  get_mem4Dint(int *****array4D, int dim0, int dim1, int dim2, int dim3);
 extern int  get_mem4Dint64(int64 *****array4D, int dim0, int dim1, int dim2, int dim3);
 extern int  get_mem5Dint(int ******array5D, int dim0, int dim1, int dim2, int dim3, int dim4);
+extern int  get_mem6Dint(int *******array6D,int dim0, int dim1, int dim2, int dim3, int dim4, int dim5);
 
 extern uint16** new_mem2Duint16(int dim0, int dim1);
 extern int get_mem2Duint16(uint16 ***array2D, int dim0, int dim1);

@@ -650,6 +650,8 @@ typedef struct slice
   int ****cofAC;               //!< AC coefficients [8x8block][4x4block][level/run][scan_pos]
   int *** cofDC;               //!< DC coefficients [yuv][level/run][scan_pos]
 
+  int ******cofAC_write;     //!<AC cofficients [mb_x][mb_y][8x8block][4x4block][level/run][scan_pos]
+  int *****cofDC_write;             //!<DC cofficients [mb_x][mb_y][yuv][level/run][scan_pos]
   // For rate control
   int diffy[16][16];
   
@@ -1117,6 +1119,7 @@ typedef struct video_par
   int mb_y_upd;
   int mb_y_intra;              //!< which GOB to intra code
   char **ipredmode;            //!< intra prediction mode
+  char ** ipredmodeAfterEncryptAndDecode;//< after encrypt the intra prediction mode
   char **ipredmode8x8;         //!< help storage for 8x8 modes, inserted by YV
   //fast intra prediction;
   char **ipredmode4x4_line;     //!< intra prediction mode
@@ -1566,6 +1569,7 @@ extern int   picture_coding_decision   (VideoParameters *p_Vid, Picture *picture
 extern void no_mem_exit  (char *where);
 extern int  get_mem_ACcoeff_new  (int****** cofAC, int chroma);
 extern int  get_mem_ACcoeff      (VideoParameters *p_Vid, int*****);
+extern int  get_mem_AC_writecoeff(VideoParameters *p_Vid, int*******);
 extern int  get_mem_DCcoeff      (int****);
 extern void free_mem_ACcoeff     (int****);
 extern void free_mem_ACcoeff_new (int***** cofAC);

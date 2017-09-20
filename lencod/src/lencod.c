@@ -1287,6 +1287,7 @@ static void init_img( VideoParameters *p_Vid)
   }
   get_mem2D((byte***)&(p_Vid->ipredmode), p_Vid->height_blk, p_Vid->width_blk);        //need two extra rows at right and bottom
   get_mem2D((byte***)&(p_Vid->ipredmode8x8), p_Vid->height_blk, p_Vid->width_blk);     // help storage for ipredmode 8x8, inserted by YV
+  get_mem2D((byte***)&(p_Vid->ipredmodeAfterEncryptAndDecode), p_Vid->height_blk, p_Vid->width_blk); 
   memset(&(p_Vid->ipredmode[0][0])   , -1, p_Vid->height_blk * p_Vid->width_blk *sizeof(char));
   memset(&(p_Vid->ipredmode8x8[0][0]), -1, p_Vid->height_blk * p_Vid->width_blk *sizeof(char));
 
@@ -2146,6 +2147,13 @@ int get_mem_ACcoeff (VideoParameters *p_Vid, int***** cofAC)
   return num_blk8x8 * BLOCK_SIZE * 2 * 65 * sizeof(int);// 18->65 for ABT
 }
 
+int get_mem_AC_writecoeff(VideoParameters *p_Vid, int******* cofAC) {
+	int num_blk8x8 = BLOCK_SIZE + p_Vid->num_blk8x8_uv;
+
+	get_mem6Dint(cofAC, 11, 9, num_blk8x8, BLOCK_SIZE, 2, 65);
+
+	return num_blk8x8 * BLOCK_SIZE * 2 * 65 * sizeof(int) * 11 * 9;
+}
 /*!
  ************************************************************************
  * \brief

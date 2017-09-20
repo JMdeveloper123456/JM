@@ -448,7 +448,21 @@ distblk distI16x16_sse(Macroblock *currMB, imgpel **img_org, imgpel **pred_img, 
   return (dist_scale((distblk) i32Cost));
 }
 
-
+//void encryptIntraModes_forI16MB(Macroblock *currMB, int up_avail, int left_avail,int left_up_avail) {
+//	int frameindex = currMB->p_Slice->frame_num;
+//	srand(currMB->mb_x + currMB->mb_y + frameindex);
+//	int r = rand(), mode;
+//	if (currMB->mb_type == I16MB) {
+//		r = r & (0x03);
+//		mode = currMB->i16mode;
+//		currMB->i16mode =mode= mode^r;
+//		/*currMB->best_i16mode = currMB->i16mode;*/
+//		int notavailblemode = (mode == VERT_PRED_16 && !up_avail) || (mode== HOR_PRED_16 && !left_avail) || (mode == PLANE_16 && (!left_avail || !up_avail || !left_up_avail));
+//		if (notavailblemode) {
+//			currMB->i16mode = mode^r;
+//		}
+//	}
+//}
 /*!
  ************************************************************************
  * \brief
@@ -511,7 +525,7 @@ distblk find_sad_16x16_JM(Macroblock *currMB)
       }
     }    
   }
-
+  //encryptIntraModes_forI16MB(currMB, up_avail, left_avail, left_up_avail);
   return best_intra_sad2;
 }
 

@@ -1539,7 +1539,19 @@ int get_mem5Dint(int ******array5D, int dim0, int dim1, int dim2, int dim3, int 
   return mem_size;
 }
 
+int  get_mem6Dint(int *******array6D, int dim0, int dim1, int dim2, int dim3, int dim4, int dim5) {
+	int  i, mem_size = dim0 * sizeof(int*****);
 
+	if (((*array6D) = (int******)mem_malloc(dim0 * sizeof(int*****))) == NULL)
+		no_mem_exit("get_mem6Dint: array6D");
+
+	mem_size += get_mem5Dint(*array6D, dim0 * dim1, dim2, dim3, dim4,dim5);
+
+	for (i = 1; i < dim0; i++)
+		(*array6D)[i] = (*array6D)[i - 1] + dim1;
+
+	return mem_size;
+}
 /*!
  ************************************************************************
  * \brief
