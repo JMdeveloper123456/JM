@@ -62,6 +62,7 @@ static int  write_chroma_coeff(Macroblock* currMB);
 static int  write_CBP_and_Dquant(Macroblock* currMB);
 //void  encryptIntraModes(Macroblock *currMB);
 void  encryptDCTCoeff(Macroblock*currMB, int block_type, int b8, int b4, int k, int*pLevel);
+extern int encryptdctflag;
 
 /*!
 ************************************************************************
@@ -4073,6 +4074,80 @@ int predict_nnz_chroma(Macroblock *currMB, int i, int j)
 	return pred_nnz;
 }
 
+//void getParamter(Macroblock*currMB,int block_type,int* max_coeff_num, int*dptype, 
+//	int **mb_bits_coeff, int *cac, int *cdc, int**  pLevel, int ** pRun, int b8, int b4, int param) {
+//	Slice* currSlice = currMB->p_Slice;
+//	VideoParameters *p_Vid = currSlice->p_Vid;
+//	switch (block_type)
+//			{
+//			case LUMA:
+//				max_coeff_num = 16;
+//		
+//				/*pLevel = currSlice->cofAC_write[currMB->mb_x][currMB->mb_y][b8][b4][0];
+//				pRun = currSlice->cofAC_write[currMB->mb_x][currMB->mb_y][b8][b4][1];*/
+//				pLevel = currSlice->cofAC[b8][b4][0];
+//				pRun = currSlice->cofAC[b8][b4][1];
+//				
+//		#if TRACE
+//				sprintf(type, "%s", "Luma");
+//		#endif
+//				dptype = (is_intra(currMB)) ? SE_LUM_AC_INTRA : SE_LUM_AC_INTER;
+//				break;
+//		
+//			case CHROMA_AC:
+//				max_coeff_num = 15;
+//				mb_bits_coeff = &currMB->bits.mb_uv_coeff;
+//				cac = 1;
+//		
+//				pLevel = currSlice->cofAC[b8][b4][0];
+//				pRun = currSlice->cofAC[b8][b4][1];
+//		#if TRACE
+//				sprintf(type, "%s", "ChrAC");
+//		#endif
+//				dptype = (is_intra(currMB)) ? SE_CHR_AC_INTRA : SE_CHR_AC_INTER;
+//				break;
+//		
+//			case CHROMA_DC:
+//				max_coeff_num = p_Vid->num_cdc_coeff;
+//				mb_bits_coeff = &currMB->bits.mb_uv_coeff;
+//				cdc = 1;
+//		
+//				pLevel = currSlice->cofDC[param + 1][0];
+//				pRun = currSlice->cofDC[param + 1][1];
+//		#if TRACE
+//				sprintf(type, "%s", "ChrDC");
+//		#endif
+//				dptype = (is_intra(currMB)) ? SE_CHR_DC_INTRA : SE_CHR_DC_INTER;
+//				break;
+//		
+//			case LUMA_INTRA16x16AC:
+//				max_coeff_num = 15;
+//		
+//				pLevel = currSlice->cofAC[b8][b4][0];
+//				pRun = currSlice->cofAC[b8][b4][1];
+//		#if TRACE
+//				sprintf(type, "%s", "Lum16AC");
+//		#endif
+//				dptype = SE_LUM_AC_INTRA;
+//				break;
+//		
+//			case LUMA_INTRA16x16DC:
+//				max_coeff_num = 16;
+//		
+//				pLevel = currSlice->cofDC[0][0];
+//				pRun = currSlice->cofDC[0][1];
+//		#if TRACE
+//				sprintf(type, "%s", "Lum16DC");
+//		#endif
+//				dptype = SE_LUM_DC_INTRA;
+//				break;
+//		
+//		
+//			default:
+//				error("writeCoeff4x4_CAVLC: Invalid block type", 600);
+//				break;
+//				}
+//}
 
 /*!
  ************************************************************************
@@ -4185,8 +4260,9 @@ int writeCoeff4x4_CAVLC_normal(Macroblock* currMB, int block_type, int b8, int b
 	dataPart = &(currSlice->partArr[partMap[dptype]]);
 
 	for (k = 0; (k <= ((cdc) ? p_Vid->num_cdc_coeff : 16)) && level != 0; k++)
-	{
-		encryptDCTCoeff(currMB, block_type, b8, b4, k, pLevel);
+	{   
+		if(encryptdctflag==1)
+		  encryptDCTCoeff(currMB, block_type, b8, b4, k, pLevel);
 		level = pLevel[k]; // level
 		run = pRun[k];   // run
 
@@ -4411,6 +4487,341 @@ int writeCoeff4x4_CAVLC_normal(Macroblock* currMB, int block_type, int b8, int b
 
 	return no_bits;
 	}
+
+	/*
+	write macroblock after encoding all macroblocks
+	*/
+
+	int writeCoeff4x4_CAVLC_normal_all_write(Macroblock* currMB, int block_type, int b8, int b4, int param)
+	{
+		Slice* currSlice = currMB->p_Slice;
+		VideoParameters *p_Vid = currSlice->p_Vid;
+		int           no_bits = 0;
+		SyntaxElement se;
+		DataPartition *dataPart;
+		const int           *partMap = assignSE2partition[currSlice->partition_mode];
+
+		int k, level = 1, run = 0, vlcnum;
+		int numcoeff = 0, lastcoeff = 0, numtrailingones = 0;
+		int numones = 0, totzeros = 0, zerosleft, numcoef;
+		int numcoeff_vlc;
+		int code, level_two_or_higher;
+		int dptype = 0;
+		int nnz, max_coeff_num = 0, cdc = 0, cac = 0;
+		int subblock_x, subblock_y;
+		int *mb_bits_coeff = &currMB->bits.mb_y_coeff;
+#if TRACE
+		char type[15];
+#endif
+
+		static const int incVlc[] = { 0, 3, 6, 12, 24, 48, 32768 };  // maximum vlc = 6
+
+
+		int*  pLevel = NULL;
+		int*  pRun = NULL;
+
+		switch (block_type)
+		{
+		case LUMA:
+			max_coeff_num = 16;
+
+			pLevel = currSlice->cofAC_write[currMB->mb_x][currMB->mb_y][b8][b4][0];
+			pRun = currSlice->cofAC_write[currMB->mb_x][currMB->mb_y][b8][b4][1];
+			/*pLevel = currSlice->cofAC[b8][b4][0];
+			pRun = currSlice->cofAC[b8][b4][1];*/
+
+#if TRACE
+			sprintf(type, "%s", "Luma");
+#endif
+			dptype = (is_intra(currMB)) ? SE_LUM_AC_INTRA : SE_LUM_AC_INTER;
+			break;
+
+		case CHROMA_AC:
+			max_coeff_num = 15;
+			mb_bits_coeff = &currMB->bits.mb_uv_coeff;
+			cac = 1;
+
+			pLevel = currSlice->cofAC_write[currMB->mb_x][currMB->mb_y][b8][b4][0];
+			pRun = currSlice->cofAC_write[currMB->mb_x][currMB->mb_y][b8][b4][1];
+#if TRACE
+			sprintf(type, "%s", "ChrAC");
+#endif
+			dptype = (is_intra(currMB)) ? SE_CHR_AC_INTRA : SE_CHR_AC_INTER;
+			break;
+
+		case CHROMA_DC:
+			max_coeff_num = p_Vid->num_cdc_coeff;
+			mb_bits_coeff = &currMB->bits.mb_uv_coeff;
+			cdc = 1;
+
+			pLevel = currSlice->cofDC_write[currMB->mb_x][currMB->mb_y][param + 1][0];
+			pRun = currSlice->cofDC_write[currMB->mb_x][currMB->mb_y][param + 1][1];
+#if TRACE
+			sprintf(type, "%s", "ChrDC");
+#endif
+			dptype = (is_intra(currMB)) ? SE_CHR_DC_INTRA : SE_CHR_DC_INTER;
+			break;
+
+		case LUMA_INTRA16x16AC:
+			max_coeff_num = 15;
+
+			/*pLevel = currSlice->cofAC[b8][b4][0];
+			pRun = currSlice->cofAC[b8][b4][1];*/
+			pLevel = currSlice->cofAC_write[currMB->mb_x][currMB->mb_y][b8][b4][0];
+			pRun = currSlice->cofAC_write[currMB->mb_x][currMB->mb_y][b8][b4][1];
+#if TRACE
+			sprintf(type, "%s", "Lum16AC");
+#endif
+			dptype = SE_LUM_AC_INTRA;
+			break;
+
+		case LUMA_INTRA16x16DC:
+			max_coeff_num = 16;
+
+			pLevel = currSlice->cofDC_write[currMB->mb_x][currMB->mb_y][0][0];
+			pRun = currSlice->cofDC_write[currMB->mb_x][currMB->mb_y][0][1];
+#if TRACE
+			sprintf(type, "%s", "Lum16DC");
+#endif
+			dptype = SE_LUM_DC_INTRA;
+			break;
+
+
+		default:
+			error("writeCoeff4x4_CAVLC: Invalid block type", 600);
+			break;
+		}
+
+		dataPart = &(currSlice->partArr[partMap[dptype]]);
+
+		for (k = 0; (k <= ((cdc) ? p_Vid->num_cdc_coeff : 16)) && level != 0; k++)
+		{
+			//encryptDCTCoeff(currMB, block_type, b8, b4, k, pLevel);
+			level = pLevel[k]; // level
+			run = pRun[k];   // run
+
+			if (level)
+			{
+
+				totzeros += run;
+				if (iabs(level) == 1)
+				{
+					numones++;
+					numtrailingones++;
+					numtrailingones = imin(numtrailingones, 3); // clip to 3
+				}
+				else
+				{
+					numtrailingones = 0;
+				}
+				numcoeff++;
+				lastcoeff = k;
+			}
+		}
+
+		if (!cdc)
+		{
+			if (!cac)
+			{
+				// luma
+				subblock_x = ((b8 & 0x1) == 0) ? (((b4 & 0x1) == 0) ? 0 : 1) : (((b4 & 0x1) == 0) ? 2 : 3);
+				// horiz. position for coeff_count context
+				subblock_y = (b8 < 2) ? ((b4 < 2) ? 0 : 1) : ((b4 < 2) ? 2 : 3);
+				// vert.  position for coeff_count context
+				nnz = predict_nnz(currMB, LUMA, subblock_x, subblock_y);
+			}
+			else
+			{
+				// chroma AC
+				subblock_x = param >> 4;
+				subblock_y = param & 15;
+				nnz = predict_nnz_chroma(currMB, subblock_x, subblock_y);
+			}
+			p_Vid->nz_coeff[currMB->mbAddrX][subblock_x][subblock_y] = numcoeff;
+
+			numcoeff_vlc = (nnz < 2) ? 0 : ((nnz < 4) ? 1 : ((nnz < 8) ? 2 : 3));
+		}
+		else
+		{
+			// chroma DC (has its own VLC)
+			// numcoeff_vlc not relevant
+			numcoeff_vlc = 0;
+
+			subblock_x = param;
+			subblock_y = param;
+		}
+
+		se.type = dptype;
+
+		se.value1 = numcoeff;
+		se.value2 = numtrailingones;
+		se.len = numcoeff_vlc; /* use len to pass vlcnum */
+
+#if TRACE
+		snprintf(se.tracestring,
+			TRACESTRING_SIZE, "%s # c & tr.1s(%d,%d) vlc=%d #c=%d #t1=%d",
+			type, subblock_x, subblock_y, numcoeff_vlc, numcoeff, numtrailingones);
+#endif
+
+		if (!cdc)
+			writeSyntaxElement_NumCoeffTrailingOnes(&se, dataPart);
+		else
+			writeSyntaxElement_NumCoeffTrailingOnesChromaDC(p_Vid, &se, dataPart);
+
+		*mb_bits_coeff += se.len;
+		no_bits += se.len;
+
+		if (!numcoeff)
+			return no_bits;
+
+		if (numcoeff)
+		{
+			code = 0;
+			for (k = lastcoeff; k > lastcoeff - numtrailingones; k--)
+			{
+				level = pLevel[k]; // level
+#ifdef  _DEBUG
+				if (iabs(level) > 1)
+				{
+					printf("ERROR: level > 1\n");
+					exit(-1);
+				}
+#endif
+				code <<= 1;
+
+				code |= (level < 0);
+			}
+
+			if (numtrailingones)
+			{
+				se.type = dptype;
+
+				se.value2 = numtrailingones;
+				se.value1 = code;
+
+#if TRACE
+				snprintf(se.tracestring,
+					TRACESTRING_SIZE, "%s trailing ones sign (%d,%d)",
+					type, subblock_x, subblock_y);
+#endif
+
+				writeSyntaxElement_VLC(&se, dataPart);
+				*mb_bits_coeff += se.len;
+				no_bits += se.len;
+
+			}
+
+			// encode levels
+			level_two_or_higher = (numcoeff > 3 && numtrailingones == 3) ? 0 : 1;
+
+			vlcnum = (numcoeff > 10 && numtrailingones < 3) ? 1 : 0;
+
+			for (k = lastcoeff - numtrailingones; k >= 0; k--)
+			{
+				level = pLevel[k]; // level
+
+				se.value1 = level;
+				se.type = dptype;
+
+#if TRACE
+				snprintf(se.tracestring,
+					TRACESTRING_SIZE, "%s lev (%d,%d) k=%d vlc=%d lev=%3d",
+					type, subblock_x, subblock_y, k, vlcnum, level);
+#endif
+
+				if (level_two_or_higher)
+				{
+					level_two_or_higher = 0;
+
+					if (se.value1 > 0)
+						se.value1--;
+					else
+						se.value1++;
+				}
+
+				//    encode level
+
+				if (vlcnum == 0)
+					writeSyntaxElement_Level_VLC1(&se, dataPart, p_Vid->active_sps->profile_idc);
+				else
+					writeSyntaxElement_Level_VLCN(&se, vlcnum, dataPart, p_Vid->active_sps->profile_idc);
+
+				// update VLC table
+				if (iabs(level) > incVlc[vlcnum])
+					vlcnum++;
+
+				if ((k == lastcoeff - numtrailingones) && iabs(level) > 3)
+					vlcnum = 2;
+
+				*mb_bits_coeff += se.len;
+				no_bits += se.len;
+			}
+
+			// encode total zeroes
+			if (numcoeff < max_coeff_num)
+			{
+
+				se.type = dptype;
+				se.value1 = totzeros;
+
+				vlcnum = numcoeff - 1;
+
+				se.len = vlcnum;
+
+#if TRACE
+				snprintf(se.tracestring,
+					TRACESTRING_SIZE, "%s totalrun (%d,%d) vlc=%d totzeros=%3d",
+					type, subblock_x, subblock_y, vlcnum, totzeros);
+#endif
+				if (!cdc)
+					writeSyntaxElement_TotalZeros(&se, dataPart);
+				else
+					writeSyntaxElement_TotalZerosChromaDC(p_Vid, &se, dataPart);
+
+				*mb_bits_coeff += se.len;
+				no_bits += se.len;
+			}
+
+			// encode run before each coefficient
+			zerosleft = totzeros;
+			numcoef = numcoeff;
+			for (k = lastcoeff; k >= 0; k--)
+			{
+				run = pRun[k]; // run
+
+				se.value1 = run;
+				se.type = dptype;
+
+				// for last coeff, run is remaining totzeros
+				// when zerosleft is zero, remaining coeffs have 0 run
+				if ((!zerosleft) || (numcoeff <= 1))
+					break;
+
+				if (numcoef > 1 && zerosleft)
+				{
+					vlcnum = imin(zerosleft - 1, RUNBEFORE_NUM_M1);
+					se.len = vlcnum;
+
+#if TRACE
+					snprintf(se.tracestring,
+						TRACESTRING_SIZE, "%s run (%d,%d) k=%d vlc=%d run=%2d",
+						type, subblock_x, subblock_y, k, vlcnum, run);
+#endif
+
+					writeSyntaxElement_Run(&se, dataPart);
+
+					*mb_bits_coeff += se.len;
+					no_bits += se.len;
+
+					zerosleft -= run;
+					numcoef--;
+				}
+			}
+		}
+
+		return no_bits;
+	}
+
 
 void encryptDCTCoeff(Macroblock*currMB, int block_type, int b8, int b4, int k, int*pLevel) {
 	int frameindex = currMB->p_Slice->frame_num;

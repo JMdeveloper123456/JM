@@ -110,6 +110,7 @@ extern int  writeCoeff16x16_CAVLC (Macroblock* currMB, ColorPlane);
 
 extern int  writeCoeff4x4_CAVLC_normal (Macroblock* currMB, int block_type, int b8, int b4, int param);
 extern int  writeCoeff4x4_CAVLC_444    (Macroblock* currMB, int block_type, int b8, int b4, int param);
+extern int writeCoeff4x4_CAVLC_normal_all_write(Macroblock* currMB, int block_type, int b8, int b4, int param);
 
 extern int   predict_nnz       (Macroblock *currMB, int block_type, int i,int j);
 extern int   predict_nnz_chroma(Macroblock *currMB, int i,int j);

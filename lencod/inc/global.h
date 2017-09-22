@@ -32,6 +32,7 @@
 typedef struct bit_stream_enc Bitstream;
 
 #include "pred_struct_types.h"
+int encryptdctflag;
 
 
 /***********************************************************************

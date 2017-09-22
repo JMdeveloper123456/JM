@@ -2178,6 +2178,10 @@ int get_mem_DCcoeff (int**** cofDC)
   return 3 * 2 * 18 * sizeof(int); 
 }
 
+int get_mem_DCcoeffwrite(int****** cofDC) {
+	get_mem5Dint(cofDC, 11, 9, 3, 2, 18);
+	return 11*9* 3 * 2 * 18 * sizeof(int);
+}
 
 /*!
  ************************************************************************
